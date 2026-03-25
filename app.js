@@ -810,5 +810,4 @@ function button(className, text) {
   btn.type = 'button';
   btn.textContent = text;
   return btn;
-} 
-
+}
