@@ -1,0 +1,9 @@
+{
+  "name": "Bump Bites",
+  "short_name": "Bump Bites",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#fbf5f3",
+  "theme_color": "#d9b6b0",
+  "description": "A cozy pregnancy food tracker with favorites, quick wins, and meal recommendations."
+}
