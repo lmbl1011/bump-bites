@@ -211,3 +211,23 @@ h2 { font-size: clamp(1.2rem, 3vw, 1.55rem); margin-bottom: 4px; }
   .search-item-actions > *, .favorite-card-actions > *, .recommendation-actions > * { flex: 1; }
   .bottom-nav { width: calc(100vw - 18px); border-radius: 22px; }
 }
+
+
+.full-width { grid-column: 1 / -1; }
+.fraction-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+.fraction-btn {
+  border: 1px solid rgba(146, 103, 99, 0.18);
+  background: #fff7f8;
+  color: #6c4b4a;
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  font: inherit;
+}
+.fraction-btn:active {
+  transform: scale(0.98);
+}
