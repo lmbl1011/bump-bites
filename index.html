@@ -15,6 +15,7 @@
         <p class="eyebrow">Pregnancy nutrition tracker</p>
         <h1>Bump Bites</h1>
         <p class="sub">Track what you eat, save favorites as you go, and get gentle ideas for what would help next.</p>
+        <p class="tiny-note">Tap any daily target to see exactly what foods are building it.</p>
       </div>
       <div class="topbar-actions">
         <span id="todayDate" class="date-pill"></span>
@@ -132,11 +133,11 @@
     </main>
 
     <nav class="bottom-nav card" aria-label="Bottom navigation">
-      <button class="nav-btn active" data-page="homePage"><span>ð </span><small>Home</small></button>
-      <button class="nav-btn" data-page="addPage"><span>â</span><small>Add</small></button>
-      <button class="nav-btn" data-page="favoritesPage"><span>ð</span><small>Favorites</small></button>
-      <button class="nav-btn" data-page="logPage"><span>ð</span><small>Log</small></button>
-      <button class="nav-btn" data-page="mealsPage"><span>ð½ï¸</span><small>Meals</small></button>
+      <button class="nav-btn active" data-page="homePage"><small>Home</small></button>
+      <button class="nav-btn" data-page="addPage"><small>Add</small></button>
+      <button class="nav-btn" data-page="favoritesPage"><small>Favorites</small></button>
+      <button class="nav-btn" data-page="logPage"><small>Log</small></button>
+      <button class="nav-btn" data-page="mealsPage"><small>Meals</small></button>
     </nav>
   </div>
 
@@ -209,6 +210,22 @@
     </div>
   </div>
 
+
+  <div id="targetDetailModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-target-modal></div>
+    <div class="modal-card card target-detail-card" role="dialog" aria-modal="true" aria-labelledby="targetDetailTitle">
+      <div class="section-head modal-head">
+        <div>
+          <p class="section-label">Daily target breakdown</p>
+          <h2 id="targetDetailTitle">Category details</h2>
+        </div>
+        <button id="closeTargetModalBtn" class="ghost-btn modal-close" type="button">Close</button>
+      </div>
+      <p id="targetDetailSummary" class="muted modal-serving"></p>
+      <div id="targetDetailList" class="target-detail-list"></div>
+    </div>
+  </div>
+
   <div id="undoToast" class="undo-toast hidden">
     <span id="undoText"></span>
     <button id="undoBtn" type="button">Undo</button>
@@ -234,7 +251,7 @@
         </div>
         <div class="log-actions wrap-actions">
           <button class="edit-btn secondary-btn" type="button">Edit</button>
-          <button class="fav-btn" type="button" aria-label="Favorite this food">â¡</button>
+          <button class="fav-btn" type="button" aria-label="Save this food">Save</button>
           <button class="delete-btn" type="button">Remove</button>
         </div>
       </div>
