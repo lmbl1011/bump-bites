@@ -88,7 +88,7 @@ const MEAL_RECOMMENDATIONS = [
   { id: 'snack-cheese-apple', title: 'Cheese and apple', description: 'A simple snack that nudges dairy and fruit upward.', foods: ['cheese-stick', 'apple'], ingredients: ['cheese', 'apple'], helps: ['dairyCups', 'calciumMg', 'fruitsCups'], mealType: 'Snack' }
 ];
 
-const STORAGE_KEY = 'bump-bites-v4';
+const STORAGE_KEY = 'bump-bites-v5-custom-foods';
 const DEFAULT_FAVORITES = ['greek-yogurt', 'milk', 'banana', 'egg', 'cheese-stick'];
 
 const state = {
@@ -101,7 +101,8 @@ const state = {
   mealFeedbackId: null,
   lastAddedLogId: null,
   undoTimer: null,
-  currentTargetId: null
+  currentTargetId: null,
+  customFoodEditingId: null
 };
 
 const progressGrid = document.getElementById('progressGrid');
@@ -118,6 +119,24 @@ const photoFoodSelect = document.getElementById('photoFoodSelect');
 const photoQtyInput = document.getElementById('photoQtyInput');
 const photoMealTypeSelect = document.getElementById('photoMealTypeSelect');
 const addPhotoFoodBtn = document.getElementById('addPhotoFoodBtn');
+
+const customFoodForm = document.getElementById('customFoodForm');
+const customFoodsList = document.getElementById('customFoodsList');
+const customFoodName = document.getElementById('customFoodName');
+const customFoodBaseAmount = document.getElementById('customFoodBaseAmount');
+const customFoodBaseUnit = document.getElementById('customFoodBaseUnit');
+const customFoodMealType = document.getElementById('customFoodMealType');
+const customFoodProtein = document.getElementById('customFoodProtein');
+const customFoodCalcium = document.getElementById('customFoodCalcium');
+const customFoodIron = document.getElementById('customFoodIron');
+const customFoodGrains = document.getElementById('customFoodGrains');
+const customFoodVegetables = document.getElementById('customFoodVegetables');
+const customFoodFruits = document.getElementById('customFoodFruits');
+const customFoodDairy = document.getElementById('customFoodDairy');
+const customFoodProteinFoods = document.getElementById('customFoodProteinFoods');
+const customFoodOils = document.getElementById('customFoodOils');
+const customFoodSaveAddBtn = document.getElementById('customFoodSaveAddBtn');
+const customFoodEditingNote = document.getElementById('customFoodEditingNote');
 const customModal = document.getElementById('customModal');
 const modalTitle = document.getElementById('modalTitle');
 const modalServingText = document.getElementById('modalServingText');
@@ -153,6 +172,7 @@ function init() {
   populatePhotoSelect();
   renderMealFilters();
   renderSearchResults();
+  renderCustomFoods();
   renderAll();
 }
 
@@ -166,6 +186,8 @@ function bindEvents() {
   bindModal();
   bindMealModal();
   bindFractionButtons();
+  customFoodForm.addEventListener('submit', handleCustomFoodSaveOnly);
+  customFoodSaveAddBtn.addEventListener('click', handleCustomFoodSaveAndAdd);
   undoBtn.addEventListener('click', undoLastAdd);
 }
 
@@ -282,7 +304,7 @@ function saveModalFood() {
 
 function populatePhotoSelect() {
   photoFoodSelect.innerHTML = '<option value="">Choose a food to add...</option>';
-  FOOD_LIBRARY.forEach((food) => {
+  getAllFoods().forEach((food) => {
     const option = document.createElement('option');
     option.value = food.id;
     option.textContent = `${food.name} | ${food.serving}`;
@@ -399,6 +421,8 @@ function renderAll() {
   renderFavorites();
   renderLog();
   renderMeals();
+  renderSearchResults();
+  renderCustomFoods();
 }
 
 function renderProgress() {
@@ -442,7 +466,7 @@ function renderQuickWins() {
   const totals = calculateTotals();
   const needs = getNeeds(totals);
   const topNeedIds = needs.slice(0, 4).map((need) => need.id);
-  const rankedFoods = FOOD_LIBRARY
+  const rankedFoods = getAllFoods()
     .filter((food) => !foodHasDislikedIngredient(food))
     .map((food) => {
       const score = topNeedIds.reduce((sum, id) => sum + Number(food[id] || 0), 0);
@@ -482,7 +506,7 @@ function renderQuickWins() {
 
 function renderSearchResults() {
   const query = foodSearch.value.trim().toLowerCase();
-  const results = FOOD_LIBRARY.filter((food) => !query || `${food.name} ${food.serving}`.toLowerCase().includes(query));
+  const results = getAllFoods().filter((food) => !query || `${food.name} ${food.serving}`.toLowerCase().includes(query));
   searchResults.innerHTML = '';
   results.forEach((food) => {
     const item = document.createElement('div');
@@ -533,6 +557,139 @@ function renderFavorites() {
     favBtn.addEventListener('click', () => toggleFavorite(food.id));
     favoritesGrid.appendChild(card);
   });
+}
+
+
+function renderCustomFoods() {
+  if (!customFoodsList) return;
+  customFoodsList.innerHTML = '';
+  const customFoods = state.data.customFoods || [];
+  if (!customFoods.length) {
+    customFoodsList.innerHTML = '<p class="muted empty-state">No custom foods yet. Build one here and it will show up for easy reuse.</p>';
+    return;
+  }
+  customFoods.forEach((food) => {
+    const card = document.createElement('article');
+    card.className = 'favorite-card';
+    card.innerHTML = `
+      <div>
+        <strong>${food.name}</strong>
+        <span>${food.serving}</span>
+      </div>
+      <div class="favorite-card-actions wrap-actions">
+        <button class="secondary-btn" type="button">Edit</button>
+        <button class="secondary-btn" type="button">Custom</button>
+        <button class="primary-btn" type="button">Add</button>
+        <button class="delete-btn" type="button">Delete</button>
+      </div>
+    `;
+    const [editBtn, customBtn, addBtn, deleteBtn] = card.querySelectorAll('button');
+    editBtn.addEventListener('click', () => startEditingCustomFood(food.id));
+    customBtn.addEventListener('click', () => openCustomModal(food.id));
+    addBtn.addEventListener('click', () => addFoodToLog(food.id, { source: 'Custom food' }));
+    deleteBtn.addEventListener('click', () => deleteCustomFood(food.id));
+    customFoodsList.appendChild(card);
+  });
+}
+
+function handleCustomFoodSaveOnly(event) {
+  event.preventDefault();
+  saveCustomFood(false);
+}
+
+function handleCustomFoodSaveAndAdd() {
+  saveCustomFood(true);
+}
+
+function startEditingCustomFood(foodId) {
+  const food = findFood(foodId);
+  if (!food) return;
+  state.customFoodEditingId = foodId;
+  customFoodName.value = food.name || '';
+  customFoodBaseAmount.value = getFoodUnitConfig(food).baseAmount || 1;
+  customFoodBaseUnit.value = getFoodUnitConfig(food).baseUnit || 'serving';
+  customFoodMealType.value = food.mealType || 'Snack';
+  customFoodProtein.value = food.proteinG || 0;
+  customFoodCalcium.value = food.calciumMg || 0;
+  customFoodIron.value = food.ironMg || 0;
+  customFoodGrains.value = food.grainsOz || 0;
+  customFoodVegetables.value = food.vegetablesCups || 0;
+  customFoodFruits.value = food.fruitsCups || 0;
+  customFoodDairy.value = food.dairyCups || 0;
+  customFoodProteinFoods.value = food.proteinFoodsOz || 0;
+  customFoodOils.value = food.oilsTsp || 0;
+  customFoodEditingNote.classList.remove('hidden');
+  document.querySelectorAll('.tab').forEach((node) => node.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach((node) => node.classList.remove('active'));
+  document.querySelector('.tab[data-tab="customFood"]').classList.add('active');
+  document.getElementById('customFoodPanel').classList.add('active');
+  switchPage('addPage');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetCustomFoodForm() {
+  customFoodForm.reset();
+  customFoodBaseAmount.value = '1';
+  customFoodBaseUnit.value = 'serving';
+  customFoodMealType.value = 'Snack';
+  state.customFoodEditingId = null;
+  customFoodEditingNote.classList.add('hidden');
+}
+
+function saveCustomFood(andAddNow = false) {
+  const name = customFoodName.value.trim();
+  if (!name) {
+    alert('Give your custom food a name first.');
+    return;
+  }
+  const baseAmount = getSafeQty(customFoodBaseAmount.value);
+  const baseUnit = customFoodBaseUnit.value || 'serving';
+  const customId = state.customFoodEditingId || `custom-${crypto.randomUUID()}`;
+  const food = {
+    id: customId,
+    isCustom: true,
+    name,
+    serving: `${formatNumber(baseAmount)} ${unitLabel(baseUnit, baseUnit)}`,
+    mealType: customFoodMealType.value || 'Snack',
+    ingredients: [name.toLowerCase()],
+    proteinG: getSafeNonNegative(customFoodProtein.value),
+    calciumMg: getSafeNonNegative(customFoodCalcium.value),
+    ironMg: getSafeNonNegative(customFoodIron.value),
+    grainsOz: getSafeNonNegative(customFoodGrains.value),
+    vegetablesCups: getSafeNonNegative(customFoodVegetables.value),
+    fruitsCups: getSafeNonNegative(customFoodFruits.value),
+    dairyCups: getSafeNonNegative(customFoodDairy.value),
+    proteinFoodsOz: getSafeNonNegative(customFoodProteinFoods.value),
+    oilsTsp: getSafeNonNegative(customFoodOils.value),
+    unitConfig: { baseAmount, baseUnit, units: [baseUnit] }
+  };
+  const existingIndex = (state.data.customFoods || []).findIndex((item) => item.id === customId);
+  if (existingIndex >= 0) {
+    state.data.customFoods[existingIndex] = food;
+  } else {
+    state.data.customFoods = [food, ...(state.data.customFoods || [])];
+  }
+  saveState();
+  renderAll();
+  if (andAddNow) {
+    addFoodToLog(food.id, { source: 'Custom food', mealType: food.mealType });
+    switchPage('logPage');
+  } else {
+    switchPage('addPage');
+  }
+  resetCustomFoodForm();
+}
+
+function deleteCustomFood(foodId) {
+  const food = findFood(foodId);
+  if (!food) return;
+  if (!confirm(`Delete ${food.name}? This will also remove its old log entries.`)) return;
+  state.data.customFoods = (state.data.customFoods || []).filter((item) => item.id !== foodId);
+  state.data.logs = state.data.logs.filter((log) => log.foodId !== foodId);
+  state.data.favorites = state.data.favorites.filter((id) => id !== foodId);
+  if (state.customFoodEditingId === foodId) resetCustomFoodForm();
+  saveState();
+  renderAll();
 }
 
 function renderMealFilters() {
@@ -765,7 +922,7 @@ function calculateTotals() {
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    return { logs: [], favorites: DEFAULT_FAVORITES, hiddenMeals: [], temporaryHiddenMeals: [], dislikedIngredients: [] };
+    return { logs: [], favorites: DEFAULT_FAVORITES, hiddenMeals: [], temporaryHiddenMeals: [], dislikedIngredients: [], customFoods: [] };
   }
   try {
     const parsed = JSON.parse(raw);
@@ -781,10 +938,11 @@ function loadState() {
       favorites: Array.isArray(parsed.favorites) ? parsed.favorites : DEFAULT_FAVORITES,
       hiddenMeals: Array.isArray(parsed.hiddenMeals) ? parsed.hiddenMeals : [],
       temporaryHiddenMeals: Array.isArray(parsed.temporaryHiddenMeals) ? parsed.temporaryHiddenMeals : [],
-      dislikedIngredients: Array.isArray(parsed.dislikedIngredients) ? parsed.dislikedIngredients : []
+      dislikedIngredients: Array.isArray(parsed.dislikedIngredients) ? parsed.dislikedIngredients : [],
+      customFoods: Array.isArray(parsed.customFoods) ? parsed.customFoods : []
     };
   } catch {
-    return { logs: [], favorites: DEFAULT_FAVORITES, hiddenMeals: [], temporaryHiddenMeals: [], dislikedIngredients: [] };
+    return { logs: [], favorites: DEFAULT_FAVORITES, hiddenMeals: [], temporaryHiddenMeals: [], dislikedIngredients: [], customFoods: [] };
   }
 }
 
@@ -792,12 +950,17 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
 }
 
+function getAllFoods() {
+  return [...FOOD_LIBRARY, ...(state.data.customFoods || [])];
+}
+
 function findFood(id) {
-  return FOOD_LIBRARY.find((food) => food.id === id);
+  return getAllFoods().find((food) => food.id === id);
 }
 
 function getFoodUnitConfig(foodOrId) {
   const food = typeof foodOrId === 'string' ? findFood(foodOrId) : foodOrId;
+  if (food?.unitConfig) return food.unitConfig;
   return FOOD_UNIT_CONFIGS[food?.id] || { baseAmount: 1, baseUnit: 'serving', units: ['serving'] };
 }
 
@@ -847,6 +1010,11 @@ function convertUnitAmount(amount, fromUnit, toUnit) {
 function getSafeQty(value) {
   const num = Number(value);
   return Number.isFinite(num) && num > 0 ? num : 1;
+}
+
+function getSafeNonNegative(value) {
+  const num = Number(value);
+  return Number.isFinite(num) && num >= 0 ? num : 0;
 }
 
 function formatQtyLabel(qty, serving) {
