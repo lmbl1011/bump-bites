@@ -88,7 +88,7 @@ const MEAL_RECOMMENDATIONS = [
   { id: 'snack-cheese-apple', title: 'Cheese and apple', description: 'A simple snack that nudges dairy and fruit upward.', foods: ['cheese-stick', 'apple'], ingredients: ['cheese', 'apple'], helps: ['dairyCups', 'calciumMg', 'fruitsCups'], mealType: 'Snack' }
 ];
 
-const STORAGE_KEY = 'bump-bites-v3';
+const STORAGE_KEY = 'bump-bites-v4';
 const DEFAULT_FAVORITES = ['greek-yogurt', 'milk', 'banana', 'egg', 'cheese-stick'];
 
 const state = {
@@ -100,7 +100,8 @@ const state = {
   modalEditingLogId: null,
   mealFeedbackId: null,
   lastAddedLogId: null,
-  undoTimer: null
+  undoTimer: null,
+  currentTargetId: null
 };
 
 const progressGrid = document.getElementById('progressGrid');
@@ -136,6 +137,11 @@ const saveIngredientPrefsBtn = document.getElementById('saveIngredientPrefsBtn')
 const undoToast = document.getElementById('undoToast');
 const undoText = document.getElementById('undoText');
 const undoBtn = document.getElementById('undoBtn');
+const targetDetailModal = document.getElementById('targetDetailModal');
+const targetDetailTitle = document.getElementById('targetDetailTitle');
+const targetDetailSummary = document.getElementById('targetDetailSummary');
+const targetDetailList = document.getElementById('targetDetailList');
+const closeTargetModalBtn = document.getElementById('closeTargetModalBtn');
 const todayDate = document.getElementById('todayDate');
 const resetDayBtn = document.getElementById('resetDayBtn');
 
@@ -229,6 +235,8 @@ function bindMealModal() {
     renderMeals();
   });
   saveIngredientPrefsBtn.addEventListener('click', saveIngredientPreferences);
+  closeTargetModalBtn.addEventListener('click', closeTargetModal);
+  document.querySelectorAll('[data-close-target-modal]').forEach((node) => node.addEventListener('click', closeTargetModal));
 }
 
 function openCustomModal(foodId, existingLog = null) {
@@ -277,7 +285,7 @@ function populatePhotoSelect() {
   FOOD_LIBRARY.forEach((food) => {
     const option = document.createElement('option');
     option.value = food.id;
-    option.textContent = `${food.name} â¢ ${food.serving}`;
+    option.textContent = `${food.name} | ${food.serving}`;
     photoFoodSelect.appendChild(option);
   });
   photoFoodSelect.addEventListener('change', () => {
@@ -402,6 +410,9 @@ function renderProgress() {
     const goal = target.min;
     const pct = Math.min(100, goal > 0 ? (current / goal) * 100 : 0);
     const node = template.content.firstElementChild.cloneNode(true);
+    node.dataset.targetId = target.id;
+    node.setAttribute('role', 'button');
+    node.setAttribute('tabindex', '0');
     node.querySelector('h3').textContent = target.label;
     node.querySelector('.progress-numbers').textContent = `${formatNumber(current)} ${target.unit}`;
     node.querySelector('.bar-fill').style.width = `${pct}%`;
@@ -414,7 +425,14 @@ function renderProgress() {
       : current < target.min
         ? `${formatNumber(target.min - current)} ${target.unit} left today`
         : 'Goal reached for today';
-    node.querySelector('.progress-note').textContent = note;
+    node.querySelector('.progress-note').textContent = `${note} Tap for details.`;
+    node.addEventListener('click', () => openTargetModal(target.id));
+    node.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openTargetModal(target.id);
+      }
+    });
     progressGrid.appendChild(node);
   });
 }
@@ -453,7 +471,7 @@ function renderQuickWins() {
     addBtn.addEventListener('click', () => addFoodToLog(food.id, { source: 'Quick Win' }));
     const customBtn = button('secondary-btn', 'Custom');
     customBtn.addEventListener('click', () => openCustomModal(food.id));
-    const favBtn = button(`fav-btn ${isFavorite(food.id) ? 'active' : ''}`, isFavorite(food.id) ? 'â¥' : 'â¡');
+    const favBtn = button(`fav-btn ${isFavorite(food.id) ? 'active' : ''}`, isFavorite(food.id) ? 'Saved' : 'Save');
     favBtn.setAttribute('aria-label', 'Favorite this food');
     favBtn.addEventListener('click', () => toggleFavorite(food.id));
     actions.append(addBtn, customBtn, favBtn);
@@ -475,7 +493,7 @@ function renderSearchResults() {
         <small>${food.serving}</small>
       </div>
       <div class="search-item-actions wrap-actions">
-        <button class="fav-btn ${isFavorite(food.id) ? 'active' : ''}" type="button" aria-label="Favorite this food">${isFavorite(food.id) ? 'â¥' : 'â¡'}</button>
+        <button class="fav-btn ${isFavorite(food.id) ? 'active' : ''}" type="button" aria-label="Save this food">${isFavorite(food.id) ? 'Saved' : 'Save'}</button>
         <button class="secondary-btn">Custom</button>
         <button class="primary-btn">Add</button>
       </div>
@@ -506,7 +524,7 @@ function renderFavorites() {
       <div class="favorite-card-actions wrap-actions">
         <button class="secondary-btn">Custom</button>
         <button class="primary-btn">Add</button>
-        <button class="fav-btn active" type="button" aria-label="Remove favorite">â¥</button>
+        <button class="fav-btn active" type="button" aria-label="Remove favorite">Saved</button>
       </div>
     `;
     const [customBtn, addBtn, favBtn] = card.querySelectorAll('button');
@@ -547,7 +565,7 @@ function renderLog() {
     const qty = getSafeQty(log.qty || convertToServings(log.foodId, log.amount || 1, log.unit));
     const node = template.content.firstElementChild.cloneNode(true);
     node.querySelector('.log-title').textContent = food.name;
-    node.querySelector('.log-meta').textContent = `${formatEntryAmount(log, food)} â¢ ${log.mealType} â¢ ${new Date(log.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    node.querySelector('.log-meta').textContent = `${formatEntryAmount(log, food)} | ${log.mealType} | ${new Date(log.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
     const tags = [];
     if (food.proteinG) tags.push(`${formatNumber(food.proteinG * qty)}g protein`);
     if (food.calciumMg) tags.push(`${formatNumber(food.calciumMg * qty)}mg calcium`);
@@ -570,7 +588,7 @@ function renderLog() {
     }
     node.querySelector('.edit-btn').addEventListener('click', () => openCustomModal(food.id, log));
     const favBtn = node.querySelector('.fav-btn');
-    favBtn.textContent = isFavorite(food.id) ? 'â¥' : 'â¡';
+    favBtn.textContent = isFavorite(food.id) ? 'Saved' : 'Save';
     favBtn.classList.toggle('active', isFavorite(food.id));
     favBtn.addEventListener('click', () => toggleFavorite(food.id));
     node.querySelector('.delete-btn').addEventListener('click', () => {
@@ -580,6 +598,53 @@ function renderLog() {
     });
     logList.appendChild(node);
   });
+}
+
+function openTargetModal(targetId) {
+  state.currentTargetId = targetId;
+  const target = DAILY_TARGETS.find((item) => item.id === targetId);
+  if (!target) return;
+  const totals = calculateTotals();
+  const current = round(totals[target.id] || 0);
+  const remaining = Math.max(0, round(target.min - current));
+  targetDetailTitle.textContent = target.label;
+  targetDetailSummary.textContent = `${formatNumber(current)} ${target.unit} so far${remaining > 0 ? ` | ${formatNumber(remaining)} ${target.unit} left today` : ' | Goal reached for today'}`;
+  targetDetailList.innerHTML = '';
+
+  const matchingLogs = state.data.logs
+    .map((log) => {
+      const food = findFood(log.foodId);
+      const qty = getSafeQty(log.qty || convertToServings(log.foodId, log.amount || 1, log.unit));
+      const contribution = Number(food?.[target.id] || 0) * qty;
+      return contribution > 0 ? { log, food, contribution } : null;
+    })
+    .filter(Boolean);
+
+  if (!matchingLogs.length) {
+    targetDetailList.innerHTML = '<p class="empty-note">Nothing logged in this category yet today.</p>';
+  } else {
+    matchingLogs.forEach(({ log, food, contribution }) => {
+      const row = document.createElement('article');
+      row.className = 'target-detail-item';
+      row.innerHTML = `
+        <div>
+          <h3>${food.name}</h3>
+          <p class="muted">${formatEntryAmount(log, food)} | ${log.mealType}</p>
+        </div>
+        <strong>${formatNumber(round(contribution))} ${target.unit}</strong>
+      `;
+      targetDetailList.appendChild(row);
+    });
+  }
+
+  targetDetailModal.classList.remove('hidden');
+  targetDetailModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeTargetModal() {
+  state.currentTargetId = null;
+  targetDetailModal.classList.add('hidden');
+  targetDetailModal.setAttribute('aria-hidden', 'true');
 }
 
 function renderMeals() {
