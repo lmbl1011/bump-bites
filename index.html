@@ -58,6 +58,7 @@
           <div class="tabs" role="tablist" aria-label="Add food options">
             <button class="tab active" data-tab="search">Search</button>
             <button class="tab" data-tab="photo">Photo</button>
+            <button class="tab" data-tab="customFood">Create custom food</button>
           </div>
 
           <div class="tab-panel active" id="searchPanel">
@@ -89,7 +90,110 @@
             </div>
             <p class="helper">Next upgrade: automatic food recognition. For now, you stay in charge of confirming what gets logged.</p>
           </div>
-        </section>
+
+          <div class="tab-panel" id="customFoodPanel">
+            <div class="custom-food-intro">
+              <p class="muted">Build a food that is not already in the app. Once you save it, it becomes searchable, reusable, and favorite-able.</p>
+            </div>
+            <form id="customFoodForm" class="custom-food-form">
+              <div class="custom-form-grid">
+                <label class="full-width">
+                  <span class="field-label">Food name</span>
+                  <input id="customFoodName" class="text-input" type="text" placeholder="Ex: Kodiak waffles" required />
+                </label>
+                <label>
+                  <span class="field-label">Default amount</span>
+                  <input id="customFoodBaseAmount" class="text-input" type="number" min="0.25" step="0.25" value="1" required />
+                </label>
+                <label>
+                  <span class="field-label">Default unit</span>
+                  <select id="customFoodBaseUnit" class="text-input">
+                    <option value="serving">serving</option>
+                    <option value="cup">cup</option>
+                    <option value="oz">oz</option>
+                    <option value="tbsp">tbsp</option>
+                    <option value="tsp">tsp</option>
+                    <option value="item">item</option>
+                    <option value="slice">slice</option>
+                    <option value="egg">egg</option>
+                  </select>
+                </label>
+                <label>
+                  <span class="field-label">Meal type</span>
+                  <select id="customFoodMealType" class="text-input">
+                    <option>Breakfast</option>
+                    <option>Lunch</option>
+                    <option>Dinner</option>
+                    <option selected>Snack</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="section-subhead">
+                <p class="section-label">Nutrients per default amount</p>
+              </div>
+              <div class="custom-form-grid">
+                <label>
+                  <span class="field-label">Protein (g)</span>
+                  <input id="customFoodProtein" class="text-input" type="number" min="0" step="0.1" value="0" />
+                </label>
+                <label>
+                  <span class="field-label">Calcium (mg)</span>
+                  <input id="customFoodCalcium" class="text-input" type="number" min="0" step="1" value="0" />
+                </label>
+                <label>
+                  <span class="field-label">Iron (mg)</span>
+                  <input id="customFoodIron" class="text-input" type="number" min="0" step="0.1" value="0" />
+                </label>
+              </div>
+
+              <div class="section-subhead">
+                <p class="section-label">Daily target categories per default amount</p>
+              </div>
+              <div class="custom-form-grid">
+                <label>
+                  <span class="field-label">Grains (oz)</span>
+                  <input id="customFoodGrains" class="text-input" type="number" min="0" step="0.1" value="0" />
+                </label>
+                <label>
+                  <span class="field-label">Vegetables (cups)</span>
+                  <input id="customFoodVegetables" class="text-input" type="number" min="0" step="0.1" value="0" />
+                </label>
+                <label>
+                  <span class="field-label">Fruits (cups)</span>
+                  <input id="customFoodFruits" class="text-input" type="number" min="0" step="0.1" value="0" />
+                </label>
+                <label>
+                  <span class="field-label">Dairy (cups)</span>
+                  <input id="customFoodDairy" class="text-input" type="number" min="0" step="0.1" value="0" />
+                </label>
+                <label>
+                  <span class="field-label">Protein foods (oz)</span>
+                  <input id="customFoodProteinFoods" class="text-input" type="number" min="0" step="0.1" value="0" />
+                </label>
+                <label>
+                  <span class="field-label">Oils (tsp)</span>
+                  <input id="customFoodOils" class="text-input" type="number" min="0" step="0.1" value="0" />
+                </label>
+              </div>
+
+              <div class="custom-form-actions wrap-actions">
+                <button id="customFoodSaveOnlyBtn" class="secondary-btn" type="submit">Save custom food</button>
+                <button id="customFoodSaveAddBtn" class="primary-btn" type="button">Save and add now</button>
+              </div>
+              <p id="customFoodEditingNote" class="helper hidden">You are editing a custom food. Saving updates its future uses.</p>
+            </form>
+
+            <div class="custom-food-library">
+              <div class="section-head">
+                <div>
+                  <p class="section-label">Custom foods</p>
+                  <h3>Your saved foods</h3>
+                </div>
+              </div>
+              <div id="customFoodsList" class="favorites-grid"></div>
+            </div>
+          </div></section>
       </section>
 
       <section id="favoritesPage" class="page">
@@ -194,7 +298,7 @@
       <div class="section-head modal-head">
         <div>
           <p class="section-label">Meal feedback</p>
-          <h2 id="mealFeedbackTitle">What didn't work?</h2>
+          <h2 id="mealFeedbackTitle">What didnât work?</h2>
         </div>
         <button id="closeMealModalBtn" class="ghost-btn modal-close" type="button">Close</button>
       </div>
@@ -203,7 +307,7 @@
         <button id="skipMealTodayBtn" class="secondary-btn wide-btn" type="button">Just not in the mood today</button>
       </div>
       <div class="ingredient-section">
-        <p class="field-label">Ingredients I don't want in recommendations</p>
+        <p class="field-label">Ingredients I donât want in recommendations</p>
         <div id="mealIngredientOptions" class="ingredient-options"></div>
         <button id="saveIngredientPrefsBtn" class="primary-btn wide-btn" type="button">Save ingredient preferences</button>
       </div>
