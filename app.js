@@ -41,7 +41,41 @@ const FOOD_LIBRARY = [
   { id: 'whole-wheat-pasta', name: 'Whole wheat pasta', serving: '1/2 cup cooked', mealType: 'Dinner', ingredients: ['pasta'], grainsOz: 1, proteinG: 4 },
   { id: 'peas', name: 'Peas', serving: '1 cup', mealType: 'Dinner', ingredients: ['peas'], vegetablesCups: 1, proteinG: 8, ironMg: 2 },
   { id: 'plain-yogurt', name: 'Plain yogurt', serving: '8 oz', mealType: 'Snack', ingredients: ['yogurt'], calciumMg: 414, proteinG: 12, dairyCups: 1 }
+
 ];
+
+const FOOD_UNIT_CONFIGS = {
+  'greek-yogurt': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'milk': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'fortified-oj': { baseAmount: 6, baseUnit: 'oz', units: ['oz', 'cup'] },
+  'cottage-cheese': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'cheese-stick': { baseAmount: 1, baseUnit: 'item', units: ['item'] },
+  'mozzarella': { baseAmount: 1, baseUnit: 'oz', units: ['oz', 'tbsp'] },
+  'egg': { baseAmount: 1, baseUnit: 'egg', units: ['egg'] },
+  'eggs-two': { baseAmount: 2, baseUnit: 'egg', units: ['egg'] },
+  'chicken': { baseAmount: 3, baseUnit: 'oz', units: ['oz'] },
+  'salmon': { baseAmount: 3, baseUnit: 'oz', units: ['oz'] },
+  'lean-beef': { baseAmount: 3, baseUnit: 'oz', units: ['oz'] },
+  'tofu': { baseAmount: 0.5, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'soybeans': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'peanut-butter': { baseAmount: 1, baseUnit: 'tbsp', units: ['tbsp', 'tsp'] },
+  'oatmeal': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'toast': { baseAmount: 1, baseUnit: 'slice', units: ['slice'] },
+  'brown-rice': { baseAmount: 0.5, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'cereal': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'banana': { baseAmount: 1, baseUnit: 'item', units: ['item'] },
+  'berries': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'orange': { baseAmount: 1, baseUnit: 'item', units: ['item'] },
+  'apple': { baseAmount: 1, baseUnit: 'item', units: ['item'] },
+  'spinach': { baseAmount: 0.5, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'broccoli': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'sweet-potato': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'avocado': { baseAmount: 0.5, baseUnit: 'item', units: ['item', 'cup'] },
+  'mixed-nuts': { baseAmount: 1, baseUnit: 'oz', units: ['oz', 'tbsp'] },
+  'whole-wheat-pasta': { baseAmount: 0.5, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'peas': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
+  'plain-yogurt': { baseAmount: 8, baseUnit: 'oz', units: ['oz', 'cup'] }
+};
 
 const MEAL_RECOMMENDATIONS = [
   { id: 'breakfast-yogurt-bowl', title: 'Yogurt berry bowl', description: 'A soft breakfast or snack that helps with dairy, fruit, and protein.', foods: ['greek-yogurt', 'berries'], ingredients: ['yogurt', 'berries'], helps: ['dairyCups', 'calciumMg', 'proteinG', 'fruitsCups'], mealType: 'Breakfast' },
@@ -54,7 +88,7 @@ const MEAL_RECOMMENDATIONS = [
   { id: 'snack-cheese-apple', title: 'Cheese and apple', description: 'A simple snack that nudges dairy and fruit upward.', foods: ['cheese-stick', 'apple'], ingredients: ['cheese', 'apple'], helps: ['dairyCups', 'calciumMg', 'fruitsCups'], mealType: 'Snack' }
 ];
 
-const STORAGE_KEY = 'bump-bites-v2';
+const STORAGE_KEY = 'bump-bites-v3';
 const DEFAULT_FAVORITES = ['greek-yogurt', 'milk', 'banana', 'egg', 'cheese-stick'];
 
 const state = {
@@ -87,6 +121,8 @@ const customModal = document.getElementById('customModal');
 const modalTitle = document.getElementById('modalTitle');
 const modalServingText = document.getElementById('modalServingText');
 const modalQtyInput = document.getElementById('modalQtyInput');
+const modalUnitSelect = document.getElementById('modalUnitSelect');
+const fractionButtons = document.getElementById('fractionButtons');
 const modalMealTypeSelect = document.getElementById('modalMealTypeSelect');
 const modalSaveBtn = document.getElementById('modalSaveBtn');
 const closeModalBtn = document.getElementById('closeModalBtn');
@@ -123,6 +159,7 @@ function bindEvents() {
   renderBottomNav();
   bindModal();
   bindMealModal();
+  bindFractionButtons();
   undoBtn.addEventListener('click', undoLastAdd);
 }
 
@@ -166,6 +203,14 @@ function bindModal() {
   modalSaveBtn.addEventListener('click', saveModalFood);
 }
 
+function bindFractionButtons() {
+  fractionButtons?.querySelectorAll('.fraction-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      modalQtyInput.value = btn.dataset.value;
+    });
+  });
+}
+
 function bindMealModal() {
   closeMealModalBtn.addEventListener('click', closeMealModal);
   mealFeedbackModal.querySelectorAll('[data-close-meal-modal]').forEach((node) => node.addEventListener('click', closeMealModal));
@@ -191,9 +236,11 @@ function openCustomModal(foodId, existingLog = null) {
   if (!food) return;
   state.modalFoodId = foodId;
   state.modalEditingLogId = existingLog?.id || null;
+  const unitConfig = getFoodUnitConfig(food);
   modalTitle.textContent = existingLog ? `Edit ${food.name}` : `Add ${food.name}`;
   modalServingText.textContent = `Default serving: ${food.serving}`;
-  modalQtyInput.value = existingLog?.qty || 1;
+  populateUnitSelect(food, existingLog?.unit || unitConfig.baseUnit);
+  modalQtyInput.value = existingLog?.amount || unitConfig.baseAmount;
   modalMealTypeSelect.value = existingLog?.mealType || food.mealType || 'Snack';
   customModal.classList.remove('hidden');
   customModal.setAttribute('aria-hidden', 'false');
@@ -209,17 +256,18 @@ function closeModal() {
 function saveModalFood() {
   const foodId = state.modalFoodId;
   if (!foodId) return;
-  const qty = getSafeQty(modalQtyInput.value);
+  const amount = getSafeQty(modalQtyInput.value);
+  const unit = modalUnitSelect.value || getFoodUnitConfig(findFood(foodId)).baseUnit;
   const mealType = modalMealTypeSelect.value || findFood(foodId)?.mealType || 'Snack';
   if (state.modalEditingLogId) {
-    state.data.logs = state.data.logs.map((log) => log.id === state.modalEditingLogId ? { ...log, qty, mealType } : log);
+    state.data.logs = state.data.logs.map((log) => log.id === state.modalEditingLogId ? { ...log, amount, unit, mealType, qty: convertToServings(foodId, amount, unit) } : log);
     saveState();
     renderAll();
     closeModal();
     switchPage('logPage');
     return;
   }
-  addFoodToLog(foodId, { source: 'Custom', qty, mealType });
+  addFoodToLog(foodId, { source: 'Custom', amount, unit, mealType });
   closeModal();
   switchPage('logPage');
 }
@@ -229,7 +277,7 @@ function populatePhotoSelect() {
   FOOD_LIBRARY.forEach((food) => {
     const option = document.createElement('option');
     option.value = food.id;
-    option.textContent = `${food.name} • ${food.serving}`;
+    option.textContent = `${food.name} â¢ ${food.serving}`;
     photoFoodSelect.appendChild(option);
   });
   photoFoodSelect.addEventListener('change', () => {
@@ -268,10 +316,15 @@ function addPhotoFood() {
 function addFoodToLog(foodId, extras = {}) {
   const food = findFood(foodId);
   if (!food) return;
+  const unitConfig = getFoodUnitConfig(food);
+  const amount = getSafeQty(extras.amount || extras.qty || unitConfig.baseAmount);
+  const unit = extras.unit || unitConfig.baseUnit;
   const log = {
     id: crypto.randomUUID(),
     foodId,
-    qty: getSafeQty(extras.qty || 1),
+    amount,
+    unit,
+    qty: convertToServings(foodId, amount, unit),
     source: extras.source || 'Manual',
     photo: extras.photo || null,
     createdAt: new Date().toISOString(),
@@ -400,7 +453,7 @@ function renderQuickWins() {
     addBtn.addEventListener('click', () => addFoodToLog(food.id, { source: 'Quick Win' }));
     const customBtn = button('secondary-btn', 'Custom');
     customBtn.addEventListener('click', () => openCustomModal(food.id));
-    const favBtn = button(`fav-btn ${isFavorite(food.id) ? 'active' : ''}`, isFavorite(food.id) ? '♥' : '♡');
+    const favBtn = button(`fav-btn ${isFavorite(food.id) ? 'active' : ''}`, isFavorite(food.id) ? 'â¥' : 'â¡');
     favBtn.setAttribute('aria-label', 'Favorite this food');
     favBtn.addEventListener('click', () => toggleFavorite(food.id));
     actions.append(addBtn, customBtn, favBtn);
@@ -422,7 +475,7 @@ function renderSearchResults() {
         <small>${food.serving}</small>
       </div>
       <div class="search-item-actions wrap-actions">
-        <button class="fav-btn ${isFavorite(food.id) ? 'active' : ''}" type="button" aria-label="Favorite this food">${isFavorite(food.id) ? '♥' : '♡'}</button>
+        <button class="fav-btn ${isFavorite(food.id) ? 'active' : ''}" type="button" aria-label="Favorite this food">${isFavorite(food.id) ? 'â¥' : 'â¡'}</button>
         <button class="secondary-btn">Custom</button>
         <button class="primary-btn">Add</button>
       </div>
@@ -453,7 +506,7 @@ function renderFavorites() {
       <div class="favorite-card-actions wrap-actions">
         <button class="secondary-btn">Custom</button>
         <button class="primary-btn">Add</button>
-        <button class="fav-btn active" type="button" aria-label="Remove favorite">♥</button>
+        <button class="fav-btn active" type="button" aria-label="Remove favorite">â¥</button>
       </div>
     `;
     const [customBtn, addBtn, favBtn] = card.querySelectorAll('button');
@@ -491,10 +544,10 @@ function renderLog() {
   logs.forEach((log) => {
     const food = findFood(log.foodId);
     if (!food) return;
-    const qty = getSafeQty(log.qty || 1);
+    const qty = getSafeQty(log.qty || convertToServings(log.foodId, log.amount || 1, log.unit));
     const node = template.content.firstElementChild.cloneNode(true);
     node.querySelector('.log-title').textContent = food.name;
-    node.querySelector('.log-meta').textContent = `${formatQtyLabel(qty, food.serving)} • ${log.mealType} • ${new Date(log.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    node.querySelector('.log-meta').textContent = `${formatEntryAmount(log, food)} â¢ ${log.mealType} â¢ ${new Date(log.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
     const tags = [];
     if (food.proteinG) tags.push(`${formatNumber(food.proteinG * qty)}g protein`);
     if (food.calciumMg) tags.push(`${formatNumber(food.calciumMg * qty)}mg calcium`);
@@ -517,7 +570,7 @@ function renderLog() {
     }
     node.querySelector('.edit-btn').addEventListener('click', () => openCustomModal(food.id, log));
     const favBtn = node.querySelector('.fav-btn');
-    favBtn.textContent = isFavorite(food.id) ? '♥' : '♡';
+    favBtn.textContent = isFavorite(food.id) ? 'â¥' : 'â¡';
     favBtn.classList.toggle('active', isFavorite(food.id));
     favBtn.addEventListener('click', () => toggleFavorite(food.id));
     node.querySelector('.delete-btn').addEventListener('click', () => {
@@ -636,7 +689,7 @@ function calculateTotals() {
   state.data.logs.forEach((log) => {
     const food = findFood(log.foodId);
     if (!food) return;
-    const qty = getSafeQty(log.qty || 1);
+    const qty = getSafeQty(log.qty || convertToServings(log.foodId, log.amount || 1, log.unit));
     DAILY_TARGETS.forEach((target) => {
       totals[target.id] += Number(food[target.id] || 0) * qty;
     });
@@ -651,8 +704,15 @@ function loadState() {
   }
   try {
     const parsed = JSON.parse(raw);
+    const logs = Array.isArray(parsed.logs) ? parsed.logs.map((log) => {
+      const food = findFood(log.foodId);
+      const unitConfig = getFoodUnitConfig(food);
+      const amount = getSafeQty(log.amount || log.qty || unitConfig.baseAmount);
+      const unit = log.unit || unitConfig.baseUnit;
+      return { ...log, amount, unit, qty: convertToServings(log.foodId, amount, unit) };
+    }) : [];
     return {
-      logs: Array.isArray(parsed.logs) ? parsed.logs.map((log) => ({ ...log, qty: getSafeQty(log.qty || 1) })) : [],
+      logs,
       favorites: Array.isArray(parsed.favorites) ? parsed.favorites : DEFAULT_FAVORITES,
       hiddenMeals: Array.isArray(parsed.hiddenMeals) ? parsed.hiddenMeals : [],
       temporaryHiddenMeals: Array.isArray(parsed.temporaryHiddenMeals) ? parsed.temporaryHiddenMeals : [],
@@ -671,17 +731,73 @@ function findFood(id) {
   return FOOD_LIBRARY.find((food) => food.id === id);
 }
 
+function getFoodUnitConfig(foodOrId) {
+  const food = typeof foodOrId === 'string' ? findFood(foodOrId) : foodOrId;
+  return FOOD_UNIT_CONFIGS[food?.id] || { baseAmount: 1, baseUnit: 'serving', units: ['serving'] };
+}
+
+function populateUnitSelect(food, selectedUnit) {
+  const config = getFoodUnitConfig(food);
+  modalUnitSelect.innerHTML = '';
+  config.units.forEach((unit) => {
+    const option = document.createElement('option');
+    option.value = unit;
+    option.textContent = unitLabel(unit, getFoodDisplayNoun(food, unit));
+    modalUnitSelect.appendChild(option);
+  });
+  modalUnitSelect.value = config.units.includes(selectedUnit) ? selectedUnit : config.baseUnit;
+}
+
+function getFoodDisplayNoun(food, unit) {
+  if (unit === 'egg') return 'egg';
+  if (unit === 'slice') return 'slice';
+  if (unit === 'item') {
+    if (food?.name === 'Cheese stick') return 'stick';
+    return 'item';
+  }
+  return unit;
+}
+
+function unitLabel(unit, noun = unit) {
+  const labels = { cup: 'cup', oz: 'oz', tbsp: 'tbsp', tsp: 'tsp', slice: 'slice', egg: 'egg', item: noun, serving: 'serving' };
+  return labels[unit] || unit;
+}
+
+function convertToServings(foodId, amount, unit) {
+  const config = getFoodUnitConfig(foodId);
+  const safeAmount = getSafeQty(amount);
+  const normalizedAmount = convertUnitAmount(safeAmount, unit, config.baseUnit);
+  return normalizedAmount / config.baseAmount;
+}
+
+function convertUnitAmount(amount, fromUnit, toUnit) {
+  if (fromUnit === toUnit) return amount;
+  const volumeOzMap = { cup: 8, oz: 1, tbsp: 0.5, tsp: 1/6 };
+  if (fromUnit in volumeOzMap && toUnit in volumeOzMap) {
+    return amount * volumeOzMap[fromUnit] / volumeOzMap[toUnit];
+  }
+  return amount;
+}
+
 function getSafeQty(value) {
   const num = Number(value);
   return Number.isFinite(num) && num > 0 ? num : 1;
 }
 
 function formatQtyLabel(qty, serving) {
-  return qty === 1 ? serving : `${formatNumber(qty)} × ${serving}`;
+  return qty === 1 ? serving : `${formatNumber(qty)} Ã ${serving}`;
+}
+
+function formatEntryAmount(log, food) {
+  const amount = getSafeQty(log.amount || 1);
+  const unit = log.unit || getFoodUnitConfig(food).baseUnit;
+  const label = unitLabel(unit, getFoodDisplayNoun(food, unit));
+  const plural = amount === 1 ? label : `${label}s`;
+  return `${formatNumber(amount)} ${plural}`;
 }
 
 function formatNumber(value) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 }
 
 function round(value) {
