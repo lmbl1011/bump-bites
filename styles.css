@@ -245,3 +245,13 @@ h2 { font-size: clamp(1.2rem, 3vw, 1.55rem); margin-bottom: 4px; }
 .target-detail-list { display: flex; flex-direction: column; gap: 10px; }
 .target-detail-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
 .target-detail-item h3 { margin: 0 0 4px; font-size: 1rem; }
+
+.custom-food-form { display: grid; gap: 16px; }
+.custom-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.custom-food-intro { margin-bottom: 12px; }
+.custom-form-actions { margin-top: 4px; }
+.custom-food-library { margin-top: 20px; }
+.section-subhead { margin-top: 4px; }
+@media (max-width: 720px) {
+  .custom-form-grid { grid-template-columns: 1fr; }
+}
