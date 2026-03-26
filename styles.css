@@ -255,3 +255,9 @@ h2 { font-size: clamp(1.2rem, 3vw, 1.55rem); margin-bottom: 4px; }
 @media (max-width: 720px) {
   .custom-form-grid { grid-template-columns: 1fr; }
 }
+
+
+.supplement-card .supplement-row { display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.supplement-actions { display:flex; gap:10px; align-items:center; }
+.small-note { margin:4px 0 0; }
+.active-soft { background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: var(--ink); }
