@@ -44,6 +44,8 @@ const FOOD_LIBRARY = [
 
 ];
 
+const PRENATAL_FOOD = { id: 'prenatal-vitamin', name: 'Prenatal vitamin', serving: '1 softgel', mealType: 'Supplement', ingredients: ['prenatal'], calciumMg: 150, ironMg: 27, isSupplement: true };
+
 const FOOD_UNIT_CONFIGS = {
   'greek-yogurt': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
   'milk': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
@@ -74,7 +76,8 @@ const FOOD_UNIT_CONFIGS = {
   'mixed-nuts': { baseAmount: 1, baseUnit: 'oz', units: ['oz', 'tbsp'] },
   'whole-wheat-pasta': { baseAmount: 0.5, baseUnit: 'cup', units: ['cup', 'oz'] },
   'peas': { baseAmount: 1, baseUnit: 'cup', units: ['cup', 'oz'] },
-  'plain-yogurt': { baseAmount: 8, baseUnit: 'oz', units: ['oz', 'cup'] }
+  'plain-yogurt': { baseAmount: 8, baseUnit: 'oz', units: ['oz', 'cup'] },
+  'prenatal-vitamin': { baseAmount: 1, baseUnit: 'item', units: ['item'] }
 };
 
 const MEAL_RECOMMENDATIONS = [
@@ -88,7 +91,8 @@ const MEAL_RECOMMENDATIONS = [
   { id: 'snack-cheese-apple', title: 'Cheese and apple', description: 'A simple snack that nudges dairy and fruit upward.', foods: ['cheese-stick', 'apple'], ingredients: ['cheese', 'apple'], helps: ['dairyCups', 'calciumMg', 'fruitsCups'], mealType: 'Snack' }
 ];
 
-const STORAGE_KEY = 'bump-bites-v5-custom-foods';
+const STORAGE_KEY = 'bump-bites-v6-prenatal';
+const STORAGE_KEYS_TO_MIGRATE = [STORAGE_KEY, 'bump-bites-v5-custom-foods', 'bump-bites-v4-cleanup', 'bump-bites-v3-units', 'bump-bites-v2-final', 'bump-bites-v1'];
 const DEFAULT_FAVORITES = ['greek-yogurt', 'milk', 'banana', 'egg', 'cheese-stick'];
 
 const state = {
@@ -163,6 +167,9 @@ const targetDetailList = document.getElementById('targetDetailList');
 const closeTargetModalBtn = document.getElementById('closeTargetModalBtn');
 const todayDate = document.getElementById('todayDate');
 const resetDayBtn = document.getElementById('resetDayBtn');
+const prenatalToggleBtn = document.getElementById('prenatalToggleBtn');
+const prenatalUndoBtn = document.getElementById('prenatalUndoBtn');
+const prenatalSummary = document.getElementById('prenatalSummary');
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -173,6 +180,7 @@ function init() {
   renderMealFilters();
   renderSearchResults();
   renderCustomFoods();
+  renderPrenatalSection();
   renderAll();
 }
 
@@ -189,6 +197,8 @@ function bindEvents() {
   customFoodForm.addEventListener('submit', handleCustomFoodSaveOnly);
   customFoodSaveAddBtn.addEventListener('click', handleCustomFoodSaveAndAdd);
   undoBtn.addEventListener('click', undoLastAdd);
+  prenatalToggleBtn?.addEventListener('click', togglePrenatalLog);
+  prenatalUndoBtn?.addEventListener('click', removePrenatalLog);
 }
 
 function resetDay() {
@@ -415,7 +425,45 @@ function isFavorite(foodId) {
   return state.data.favorites.includes(foodId);
 }
 
+
+function getPrenatalLog() {
+  return state.data.logs.find((log) => log.foodId === PRENATAL_FOOD.id) || null;
+}
+
+function togglePrenatalLog() {
+  const existing = getPrenatalLog();
+  if (existing) {
+    removePrenatalLog();
+    return;
+  }
+  addFoodToLog(PRENATAL_FOOD.id, { source: 'Supplement', amount: 1, unit: 'item', mealType: 'Supplement' });
+  showUndoToast('Logged prenatal vitamin');
+  renderPrenatalSection();
+}
+
+function removePrenatalLog() {
+  const existing = getPrenatalLog();
+  if (!existing) return;
+  state.data.logs = state.data.logs.filter((log) => log.id !== existing.id);
+  if (state.lastAddedLogId === existing.id) state.lastAddedLogId = null;
+  saveState();
+  renderAll();
+}
+
+function renderPrenatalSection() {
+  const logged = Boolean(getPrenatalLog());
+  if (prenatalToggleBtn) {
+    prenatalToggleBtn.textContent = logged ? 'Prenatal logged' : 'Log prenatal';
+    prenatalToggleBtn.classList.toggle('active-soft', logged);
+  }
+  if (prenatalUndoBtn) prenatalUndoBtn.classList.toggle('hidden', !logged);
+  if (prenatalSummary) prenatalSummary.textContent = logged
+    ? 'Logged today. Counting 27 mg iron and 150 mg calcium.'
+    : 'Adds 27 mg iron and 150 mg calcium.';
+}
+
 function renderAll() {
+  renderPrenatalSection();
   renderProgress();
   renderQuickWins();
   renderFavorites();
@@ -467,6 +515,7 @@ function renderQuickWins() {
   const needs = getNeeds(totals);
   const topNeedIds = needs.slice(0, 4).map((need) => need.id);
   const rankedFoods = getAllFoods()
+    .filter((food) => !food.isSupplement)
     .filter((food) => !foodHasDislikedIngredient(food))
     .map((food) => {
       const score = topNeedIds.reduce((sum, id) => sum + Number(food[id] || 0), 0);
@@ -495,7 +544,7 @@ function renderQuickWins() {
     addBtn.addEventListener('click', () => addFoodToLog(food.id, { source: 'Quick Win' }));
     const customBtn = button('secondary-btn', 'Custom');
     customBtn.addEventListener('click', () => openCustomModal(food.id));
-    const favBtn = button(`fav-btn ${isFavorite(food.id) ? 'active' : ''}`, isFavorite(food.id) ? 'Saved' : 'Save');
+    const favBtn = button(`fav-btn ${isFavorite(food.id) ? 'active' : ''}`, isFavorite(food.id) ? 'Remove favorite' : 'Save');
     favBtn.setAttribute('aria-label', 'Favorite this food');
     favBtn.addEventListener('click', () => toggleFavorite(food.id));
     actions.append(addBtn, customBtn, favBtn);
@@ -506,7 +555,7 @@ function renderQuickWins() {
 
 function renderSearchResults() {
   const query = foodSearch.value.trim().toLowerCase();
-  const results = getAllFoods().filter((food) => !query || `${food.name} ${food.serving}`.toLowerCase().includes(query));
+  const results = getAllFoods().filter((food) => !food.isSupplement).filter((food) => !query || `${food.name} ${food.serving}`.toLowerCase().includes(query));
   searchResults.innerHTML = '';
   results.forEach((food) => {
     const item = document.createElement('div');
@@ -517,7 +566,7 @@ function renderSearchResults() {
         <small>${food.serving}</small>
       </div>
       <div class="search-item-actions wrap-actions">
-        <button class="fav-btn ${isFavorite(food.id) ? 'active' : ''}" type="button" aria-label="Save this food">${isFavorite(food.id) ? 'Saved' : 'Save'}</button>
+        <button class="fav-btn ${isFavorite(food.id) ? 'active' : ''}" type="button" aria-label="Save this food">${isFavorite(food.id) ? 'Remove favorite' : 'Save'}</button>
         <button class="secondary-btn">Custom</button>
         <button class="primary-btn">Add</button>
       </div>
@@ -532,7 +581,7 @@ function renderSearchResults() {
 
 function renderFavorites() {
   favoritesGrid.innerHTML = '';
-  const favorites = state.data.favorites.map(findFood).filter(Boolean);
+  const favorites = state.data.favorites.map(findFood).filter((food) => food && !food.isSupplement);
   if (!favorites.length) {
     favoritesGrid.innerHTML = '<p class="muted empty-state">No favorites yet. Tap a heart on a food and it will bloom here.</p>';
     return;
@@ -548,7 +597,7 @@ function renderFavorites() {
       <div class="favorite-card-actions wrap-actions">
         <button class="secondary-btn">Custom</button>
         <button class="primary-btn">Add</button>
-        <button class="fav-btn active" type="button" aria-label="Remove favorite">Saved</button>
+        <button class="fav-btn active" type="button" aria-label="Remove favorite">Remove favorite</button>
       </div>
     `;
     const [customBtn, addBtn, favBtn] = card.querySelectorAll('button');
@@ -580,13 +629,15 @@ function renderCustomFoods() {
         <button class="secondary-btn" type="button">Edit</button>
         <button class="secondary-btn" type="button">Custom</button>
         <button class="primary-btn" type="button">Add</button>
+        <button class="fav-btn ${isFavorite(food.id) ? 'active' : ''}" type="button">${isFavorite(food.id) ? 'Remove favorite' : 'Save'}</button>
         <button class="delete-btn" type="button">Delete</button>
       </div>
     `;
-    const [editBtn, customBtn, addBtn, deleteBtn] = card.querySelectorAll('button');
+    const [editBtn, customBtn, addBtn, favBtn, deleteBtn] = card.querySelectorAll('button');
     editBtn.addEventListener('click', () => startEditingCustomFood(food.id));
     customBtn.addEventListener('click', () => openCustomModal(food.id));
     addBtn.addEventListener('click', () => addFoodToLog(food.id, { source: 'Custom food' }));
+    favBtn.addEventListener('click', () => toggleFavorite(food.id));
     deleteBtn.addEventListener('click', () => deleteCustomFood(food.id));
     customFoodsList.appendChild(card);
   });
@@ -743,9 +794,14 @@ function renderLog() {
       img.src = log.photo;
       img.classList.remove('hidden');
     }
-    node.querySelector('.edit-btn').addEventListener('click', () => openCustomModal(food.id, log));
+    const editBtn = node.querySelector('.edit-btn');
+    if (food.isSupplement) {
+      editBtn.classList.add('hidden');
+    } else {
+      editBtn.addEventListener('click', () => openCustomModal(food.id, log));
+    }
     const favBtn = node.querySelector('.fav-btn');
-    favBtn.textContent = isFavorite(food.id) ? 'Saved' : 'Save';
+    favBtn.textContent = isFavorite(food.id) ? 'Remove favorite' : 'Save';
     favBtn.classList.toggle('active', isFavorite(food.id));
     favBtn.addEventListener('click', () => toggleFavorite(food.id));
     node.querySelector('.delete-btn').addEventListener('click', () => {
@@ -919,10 +975,14 @@ function calculateTotals() {
   return totals;
 }
 
+function defaultState() {
+  return { logs: [], favorites: DEFAULT_FAVORITES, hiddenMeals: [], temporaryHiddenMeals: [], dislikedIngredients: [], customFoods: [] };
+}
+
 function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
+  const raw = STORAGE_KEYS_TO_MIGRATE.map((key) => localStorage.getItem(key)).find(Boolean);
   if (!raw) {
-    return { logs: [], favorites: DEFAULT_FAVORITES, hiddenMeals: [], temporaryHiddenMeals: [], dislikedIngredients: [], customFoods: [] };
+    return defaultState();
   }
   try {
     const parsed = JSON.parse(raw);
@@ -942,7 +1002,7 @@ function loadState() {
       customFoods: Array.isArray(parsed.customFoods) ? parsed.customFoods : []
     };
   } catch {
-    return { logs: [], favorites: DEFAULT_FAVORITES, hiddenMeals: [], temporaryHiddenMeals: [], dislikedIngredients: [], customFoods: [] };
+    return defaultState();
   }
 }
 
@@ -951,7 +1011,7 @@ function saveState() {
 }
 
 function getAllFoods() {
-  return [...FOOD_LIBRARY, ...(state.data.customFoods || [])];
+  return [...FOOD_LIBRARY, PRENATAL_FOOD, ...(state.data.customFoods || [])];
 }
 
 function findFood(id) {
